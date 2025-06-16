@@ -1,0 +1,17 @@
+# Ignora entornos virtuales
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Archivos binarios o muy grandes
+*.so
+*.dat
+*.sh
+*.zip
+*.tar.gz
+
+# Archivos de sistema y del editor
+.DS_Store
+.idea/
+.vscode/
