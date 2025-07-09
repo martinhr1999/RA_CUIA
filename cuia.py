@@ -10,6 +10,8 @@ import pylinalg as la # Álgebra lineal para las transformaciones geométricas
 from PIL import Image, ImageDraw, ImageFont
 from scipy.spatial.transform import Rotation as R  # ✅ Añádelo al principio de tu archivo
 
+
+
 def popup(titulo, imagen):
     if titulo == "Control_RA":
         cv2.imshow(titulo, imagen)
@@ -50,7 +52,6 @@ def plot(image, titulo=None, axis=False):
     else:
         plt.imshow( cv2.cvtColor(image, cv2.COLOR_BGR2RGB) , aspect='equal')
 
-
 def bestBackend(camid):
     backends = cv2.videoio_registry.getCameraBackends()
     bestCap = 0
@@ -65,7 +66,6 @@ def bestBackend(camid):
                 bestCap = b
             cam.release()
     return bestCap
-
 
 class myVideo:
     def __init__(self, source, backend=cv2.CAP_ANY):
@@ -337,8 +337,6 @@ class matrizDeTransformacion:
     def __repr__(self):
         return f"matrizDeTransformacion(\n{self.matrix}\n)"
 
-
-
 class modeloGLTF:
     def __init__(self, ruta_modelo=None):
         self.model_obj = None  
@@ -423,22 +421,34 @@ class escenaPYGFX:
         self.canvas = WgpuCanvas(size=(ancho, alto))
         self.renderer = gfx.WgpuRenderer(self.canvas)
         self.camera = gfx.PerspectiveCamera(fov, aspect=ancho/alto, width=ancho, height=alto, depth_range=(0.1, 1000))
+        self.renderer.render(self.scene, self.camera)
+        
+
 
     def iluminar(self, intensidad=1.0):
         ambient_light = gfx.AmbientLight(intensidad)
         self.scene.add(ambient_light)
         
     def agregar_modelo(self, modelo):
-        skeleton_helper = gfx.SkeletonHelper(modelo.model_obj)
-        skeleton_helper.visible = False
-        self.scene.add(skeleton_helper)
-        self.scene.add(modelo.model_obj)
-        self.avatar = modelo  # ⬅️ Guardamos el avatar aquí
+        if hasattr(modelo, "model_obj"):
+            # modeloGLTF
+            skeleton_helper = gfx.SkeletonHelper(modelo.model_obj)
+            skeleton_helper.visible = False
+            self.scene.add(skeleton_helper)
+            self.scene.add(modelo.model_obj)
 
-        if modelo.indice_animacion is not None:
-            action = self.mixer.clip_action(modelo.current_action)
-            action.play()
-            self.mixer.update(0.0)
+            if not hasattr(self, "avatar") or self.avatar is None:
+                self.avatar = modelo
+
+            if modelo.indice_animacion is not None:
+                action = self.mixer.clip_action(modelo.current_action)
+                action.play()
+                self.mixer.update(0.0)
+        else:
+            # gfx.Mesh, texto, iconos
+            self.scene.add(modelo)
+
+    
     def ilumina_modelo(self, modelo, intensidad=0.5):
         radio = modelo.model_obj.get_world_bounding_sphere()[3]
         posicion = modelo.model_obj.local.position
@@ -502,8 +512,6 @@ class escenaPYGFX:
 
     def agregar(self, objeto):
         self.scene.add(objeto)
-
-
 
     def avatar_transform(self, matriz):
         if hasattr(self, 'avatar') and self.avatar:
