@@ -121,7 +121,7 @@ def obtener_redes_comunes():
         conn.close()
         return {}
 
-    print(f"[DEBUG] Usuario actual en sesión: {nombre_usuario}")
+    #print(f"[DEBUG] Usuario actual en sesión: {nombre_usuario}")
 
     # Obtener el marcador del usuario que inició sesión
     cursor.execute("SELECT marcador_id FROM usuarios WHERE nombre = ?", (nombre_usuario,))
@@ -136,7 +136,7 @@ def obtener_redes_comunes():
     cursor.execute("SELECT red_social FROM perfiles_redes WHERE marcador_id = ?", (marcador_usuario,))
     redes_usuario_raw = cursor.fetchall()
     redes_usuario = {r[0].strip().lower() for r in redes_usuario_raw}
-    print(f"[DEBUG] Redes del usuario {nombre_usuario}: {redes_usuario}")
+    #print(f"[DEBUG] Redes del usuario {nombre_usuario}: {redes_usuario}")
 
     marcador_detectado = estado.get("marcador_detectado")
     if isinstance(marcador_detectado, dict):
@@ -145,12 +145,12 @@ def obtener_redes_comunes():
         conn.close()
         return {}
 
-    print(f"[DEBUG] Marcador detectado: {marcador_detectado}")
+    #print(f"[DEBUG] Marcador detectado: {marcador_detectado}")
 
     # Obtener redes del marcador detectado
     cursor.execute("SELECT red_social, icono FROM perfiles_redes WHERE marcador_id = ?", (marcador_detectado,))
     redes_marcador = cursor.fetchall()
-    print(f"[DEBUG] Redes del marcador {marcador_detectado}: {[r[0] for r in redes_marcador]}")
+    #print(f"[DEBUG] Redes del marcador {marcador_detectado}: {[r[0] for r in redes_marcador]}")
 
     conn.close()
 

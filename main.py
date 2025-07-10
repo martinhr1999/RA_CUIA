@@ -352,6 +352,7 @@ def interfaz():
 
             if nombre:
                 estado["nombre"] = nombre
+                print(f"[INFO] Usuario reconocido: {nombre}")
                 estado["refrescar"] = True
             estado["modo_reconocimiento"] = False
             decir_async("Escanea el marcador que deseas reconocer.")  # Instrucción para el usuario

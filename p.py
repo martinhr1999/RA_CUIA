@@ -32,7 +32,7 @@ def avatar(estado):
     #modelo.rotar((np.pi, 0, 0)) # Rotar el modelo 90 grados en X para que coincida con el punto de vista que se obtiene en Blender
     modelo.escalar(0.05) # Escalado uniforme del modelo
     modelo.flotar() # Sitúa el modelo en el rango positivo del eje Z
-    modelo.trasladar([-0.3, 0.3, 0])
+    modelo.trasladar([-0.2, 0.25, 0])
 
     #modelo.trasladar([1, 0, 0]) # Ajuste de posición para que flote sobre el marcador
     # Reproducimos las animaciones que haya en el modelo
@@ -99,7 +99,7 @@ def avatar(estado):
 
             if not iconos_mostrados:
                 #print("[DEBUG] Buscando redes comunes...")
-                redes = obtener_redes()
+                redes = obtener_redes_comunes()
 
                 if redes:
                     #print(f"[DEBUG] Redes comunes encontradas: {list(redes.keys())}")
