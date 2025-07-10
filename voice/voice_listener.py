@@ -77,9 +77,9 @@ class AsistenteVoz:
     
     def _callback(self, recognizer, audio):
         try:
-            #texto = recognizer.recognize_google(audio, language="es-ES")
+            texto = recognizer.recognize_google(audio, language="es-ES")
             
-            texto= 'perfil' # Para pruebas, puedes comentar esta línea y descomentar la anterio
+            #texto= 'perfil' # Para pruebas, puedes comentar esta línea y descomentar la anterio
             print(f"[VOZ] Has dicho: {texto}")
 
             marcador_info = estado.get("marcador_detectado")

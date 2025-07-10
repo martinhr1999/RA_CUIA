@@ -37,6 +37,7 @@ echo "[✅ COMPLETADO] El entorno ha sido creado correctamente con Python 3.11."
     pip install dlib
     pip install face_recognition
     pip install gltflib
+    pip install numpy
 
         # 🔹 Visualización y texturas
     pip install Pillow

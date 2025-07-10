@@ -30,9 +30,8 @@ from cuia import modeloGLTF
 
 def crear_avatar():
     avatar = modeloGLTF("ui/assets/silueta.glb")
-    avatar.escalar(0.3)
-    avatar.trasladar([0, 0, -2])
-    avatar.flotar()
+    avatar.rotar((np.pi/2.0, 0, 0))
+    #avatar.escalar(0.2)
     return avatar
 
 def crear_icono_red_social(ruta_imagen, posicion):

@@ -199,47 +199,77 @@ def detectar_orientacion(normal):
     else:
         return "inclinado"
 
+def fromOpencvToPygfx(rvec, tvec):
+    pose = np.eye(4)
+    pose[0:3,3] = tvec.T
+    pose[0:3,0:3] = cv2.Rodrigues(rvec)[0]
+    pose[1:3] *= -1  # Inversión de los ejes Y y Z
+    pose = np.linalg.inv(pose)
+    return(pose)
 
+def fov(cameraMatrix, ancho, alto):
+    if ancho > alto:
+        f = cameraMatrix[1, 1]
+        fov_rad = 2 * np.arctan(alto / (2 * f))
+    else:
+        f = cameraMatrix[0, 0]
+        fov_rad = 2 * np.arctan(ancho / (2 * f))
+    return np.rad2deg(fov_rad)
 
-def mostrar_avatar_con_marcador(escena, frame, rvec, tvec, perfil, panel):
+diccionario = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+detector = cv2.aruco.ArucoDetector(diccionario)
+
+def detectarPose(frame, tam): # tam es el tamaño en metros del marcador
+    bboxs, ids, rechazados = detector.detectMarkers(frame)
+    if ids is not None:
+        objPoints = np.array([[-tam/2.0, tam/2.0, 0.0],
+                              [tam/2.0, tam/2.0, 0.0],
+                              [tam/2.0, -tam/2.0, 0.0],
+                              [-tam/2.0, -tam/2.0, 0.0]])
+        resultado = {}
+        for i in range(len(ids)):
+                ret, rvec, tvec = cv2.solvePnP(objPoints, bboxs[i], cameraMatrix, distCoeffs)
+                if ret:
+                    resultado[ids[i][0]] = (rvec, tvec)
+        return((True, resultado))
+    return((False, None))
+
+def mostrar_avatar_con_marcador(escena, frame, perfil, cameraMatrix, distCoeffs, ancho, alto):
     try:
-        # Crear avatar si no existe
-        if not hasattr(escena, "avatar") or escena.avatar is None:
-            avatar = crear_avatar()
-            escena.agregar_modelo(avatar)
-            escena.ilumina_modelo(avatar)
-            escena.avatar = avatar
-            escena.avatar.flotar()
-        else:
-            avatar = escena.avatar
+       
+        avatar = escena.avatar
 
-        # Escalar según distancia a cámara
+        # Detectar pose del marcador usando el ID almacenado
+        marcador_id = estado.get("marcador_id", None)
+        ok, resultado = detectarPose(frame, 0.19)
+        if not ok or marcador_id not in resultado:
+            return frame
+
+        rvec, tvec = resultado[marcador_id]
+        rvec = np.asarray(rvec, dtype=np.float64).reshape((3, 1))
+        tvec = np.asarray(tvec, dtype=np.float64).reshape((3, 1))
+
+        # Escalado del avatar
         distancia = np.linalg.norm(tvec)
         escala = max(0.04, min(0.07, distancia * 0.4))
         avatar.escalar(escala)
 
-        # Convertir pose a matriz homogénea
-        matriz = pose_to_matrix(rvec, tvec)
+        # Pose y orientación
+        pose = fromOpencvToPygfx(rvec, tvec)
+        rotacion = pose[:3, :3]
+        posicion = pose[:3, 3]
+        # Corregir orientación para que el avatar mire hacia adelante (giro 180° en eje Y)
+        R_corr = R.from_euler('y', 180, degrees=True).as_matrix()
+        rotacion = rotacion @ R_corr
+        quat = R.from_matrix(rotacion).as_quat()
+        avatar.model_obj.local.position = posicion
+        avatar.model_obj.local.rotation = tuple(quat)
 
-        # Rotación: eje Z (marcador) → eje Y (modelo)
-        R_corr = R.from_euler('x', -90, degrees=True).as_matrix()
-        rotacion = matriz.matrix[:3, :3] @ R_corr
-
-        # Rotación extra para mirar hacia cámara
-        R_flip = R.from_euler('y', 180, degrees=True).as_matrix()
-        rotacion = rotacion @ R_flip
-
-        # Posición = centro del marcador + 5 cm hacia arriba (eje Y local del modelo)
-        posicion = matriz.matrix[:3, 3] + rotacion[:, 1] * 0.05
-
-        # Aplicar posición y rotación al avatar
-        avatar.trasladar(posicion)
-        avatar.model_obj.local.rotation = tuple(R.from_matrix(rotacion).as_quat())
-        avatar.model_obj.visible = True
-
-        # Cámara mira al avatar
+        escena.avatar.model_obj.visible = True
         escena.camera.look_at(posicion)
-
+        avatar.flotar()
+        avatar.trasladar([-0.6,1.5,3])  # Ajuste de posición para que flote sobre el marcador
+        #avatar.flotar()
         # Redes sociales
         redes = obtener_redes_comunes()
         if hasattr(escena, "iconos_activos"):
@@ -254,19 +284,18 @@ def mostrar_avatar_con_marcador(escena, frame, rvec, tvec, perfil, panel):
             for red, icono_bytes in redes.items()
         ]
 
-        centro = matriz.matrix[:3, 3].tolist()
-        iconos_nuevos = agregar_iconos_redes(escena, lista_iconos, centro, radio=0.35)
+        iconos_nuevos = agregar_iconos_redes(escena, lista_iconos, posicion.tolist(), radio=0.35)
         escena.iconos_activos = iconos_nuevos
+        
 
-        # Render final
         render_3d = escena.render()
-        panel = alphaBlending(render_3d, panel, 0, 0)
-
-        return panel
+        frame = alphaBlending(render_3d, frame, 0, 0)
+        return frame
 
     except Exception as e:
         print("[❌ ERROR mostrar_avatar_con_marcador]:", e)
-        return panel
+        return frame
+
 
 
 def interfaz():
@@ -280,19 +309,41 @@ def interfaz():
 
     iconos_visibles = []
 
-    try:
-        escena = escenaPYGFX(fov=120, ancho=1000, alto=1000)
-        escena.iluminar(3.0)
-
-        # 🔁 Compartir escena con overlay
-        import ui.overlay
-        ui.overlay.escena = escena
-
-    except Exception as e:
-        print(f"[ERROR] pygfx desactivado: {e}")
-        pygfx_activo = False
 
     webcam = cv2.VideoCapture(0)
+    ancho = int(webcam.get(cv2.CAP_PROP_FRAME_WIDTH))
+    alto = int(webcam.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+
+    try:
+        # Importamos la matriz característica de la cámara y sus coeficientes de distorsión del fichero de calibrado
+        import utils.camara as camara
+        cameraMatrix = camara.cameraMatrix
+        distCoeffs = camara.distCoeffs
+    except ImportError:
+        # Si la cámara no estaba calibrada suponemos que no presenta distorsiones
+        cameraMatrix = np.array([[ 1000,    0, ancho/2],
+                                [    0, 1000,  alto/2],
+                                [    0,    0,       1]])
+        distCoeffs = np.zeros((5, 1)) 
+
+    try:
+            avatar = crear_avatar()
+            escena = cuia.escenaPYGFX(fov(cameraMatrix, ancho, alto), ancho, alto)
+            escena.agregar_modelo(avatar)
+            escena.ilumina_modelo(avatar)
+            escena.avatar = avatar
+            escena.avatar.flotar()
+            escena.iluminar(3.0)
+
+            # 🔁 Compartir escena con overlay
+            import ui.overlay
+            ui.overlay.escena = escena
+
+    except Exception as e:
+            print(f"[ERROR] pygfx desactivado: {e}")
+            pygfx_activo = False
+
     if not webcam.isOpened():
         print("❌ No se pudo abrir la cámara")
         return
@@ -308,13 +359,14 @@ def interfaz():
             print("❌ No se pudo capturar frame")
             break
 
-        panel = frame.copy()
-        dibujar_botones(panel)
+        
+        dibujar_botones(frame)
 
         # 🔹 RECONOCIMIENTO FACIAL O POR MARCADOR
         if estado.get("modo_reconocimiento"):
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             nombre = reconocer_usuario(rgb)
+            print(f"[INFO] Reconocimiento facial: {nombre}")
             #nombre ='martin'
             if not nombre:
                 id_marcador, _, _, _ = detectar_marcador(frame, return_corners=True)
@@ -346,7 +398,8 @@ def interfaz():
             id_detectado, rvec, tvec, _ = detectar_marcador(frame, return_corners=True)
 
             if id_detectado == marcador_esperado and perfil and rvec is not None and tvec is not None:
-                panel = mostrar_avatar_con_marcador(escena, frame, rvec, tvec, perfil, panel)
+                frame = mostrar_avatar_con_marcador(escena, frame, perfil, cameraMatrix, distCoeffs, ancho, alto)
+
             elif id_detectado is None:
                 # Si se pierde el marcador, ocultar avatar
                 if hasattr(escena, "avatar"):
@@ -363,13 +416,13 @@ def interfaz():
                 if render.shape[2] == 4:
                     render = render[:, :, :3]
                 render_bgr = render[:, :, ::-1]
-                render_resized = cv2.resize(render_bgr, (panel.shape[1], panel.shape[0]))
-                panel = cv2.addWeighted(panel, 1.0, render_resized, 0.6, 0)
+                render_resized = cv2.resize(render_bgr, (frame.shape[1], frame.shape[0]))
+                frame = cv2.addWeighted(frame, 1.0, render_resized, 0.6, 0)
             except Exception as e:
                 print("[ERROR renderizando texto flotante]", e)
 
         # Mostrar ventana final
-        cv2.imshow("Control_RA", panel)
+        cv2.imshow("Control_RA", frame)
         tecla = cv2.waitKey(1)
         if tecla == 27:
             break
