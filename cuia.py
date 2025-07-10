@@ -149,7 +149,10 @@ class myVideo:
         return self._cap.set(prop, value)
 
     def play(self, titulo, key=27):
-        cv2.namedWindow(titulo)
+    # Asegura que la ventana se crea correctamente con soporte para hilos
+        cv2.startWindowThread()
+        cv2.namedWindow(titulo, cv2.WINDOW_NORMAL)
+
         if self._cap.isOpened():
             print(f"[INFO] Cámara iniciada en ventana: {titulo}")
             while True:
@@ -157,15 +160,22 @@ class myVideo:
                 if not ret:
                     print("[INFO] No se pudo leer frame.")
                     break
-                if cv2.getWindowProperty(titulo, cv2.WND_PROP_VISIBLE) < 1:
-                    print("[INFO] Ventana cerrada manualmente.")
+
+                try:
+                    if cv2.getWindowProperty(titulo, cv2.WND_PROP_VISIBLE) < 1:
+                        print("[INFO] Ventana cerrada manualmente.")
+                        break
+                except cv2.error:
+                    print("[WARN] No se pudo obtener propiedad de ventana. Asumiendo que fue cerrada.")
                     break
+
                 if cv2.waitKey(20) == key:
                     print("[INFO] Tecla de salida pulsada.")
                     break
+
                 if frame is not None:
-                    if titulo == "Control_RA":
-                        cv2.imshow(titulo, frame)
+                    # Mostrar frame en cualquier ventana (no solo 'Control_RA')
+                    cv2.imshow(titulo, frame)
 
         cv2.destroyWindow(titulo)
 

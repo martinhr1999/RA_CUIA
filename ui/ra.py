@@ -121,7 +121,7 @@ def orientar_icono_hacia(icono_modelo, origen, destino):
 import traceback
 
 
-def agregar_iconos_redes(escena, lista_iconos, centro, radio=0.8):
+def agregar_iconos_redes(escena, lista_iconos, centro, radio=0.3):
     iconos = []
     t_inicio = time.time()
     total = len(lista_iconos)

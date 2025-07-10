@@ -19,6 +19,8 @@ from db.bd import *
 from estado import estado
 import webbrowser
 
+from p import avatar
+
 pygfx_activo = True
 ultimo_marcador = None
 ultima_matriz = None
@@ -237,7 +239,6 @@ def detectarPose(frame, tam): # tam es el tamaño en metros del marcador
 def mostrar_avatar_con_marcador(escena, frame, perfil, cameraMatrix, distCoeffs, ancho, alto):
     try:
        
-        avatar = escena.avatar
 
         # Detectar pose del marcador usando el ID almacenado
         marcador_id = estado.get("marcador_id", None)
@@ -249,26 +250,11 @@ def mostrar_avatar_con_marcador(escena, frame, perfil, cameraMatrix, distCoeffs,
         rvec = np.asarray(rvec, dtype=np.float64).reshape((3, 1))
         tvec = np.asarray(tvec, dtype=np.float64).reshape((3, 1))
 
-        # Escalado del avatar
-        distancia = np.linalg.norm(tvec)
-        escala = max(0.04, min(0.07, distancia * 0.4))
-        avatar.escalar(escala)
-
         # Pose y orientación
         pose = fromOpencvToPygfx(rvec, tvec)
-        rotacion = pose[:3, :3]
         posicion = pose[:3, 3]
         # Corregir orientación para que el avatar mire hacia adelante (giro 180° en eje Y)
-        R_corr = R.from_euler('y', 180, degrees=True).as_matrix()
-        rotacion = rotacion @ R_corr
-        quat = R.from_matrix(rotacion).as_quat()
-        avatar.model_obj.local.position = posicion
-        avatar.model_obj.local.rotation = tuple(quat)
-
-        escena.avatar.model_obj.visible = True
-        escena.camera.look_at(posicion)
-        avatar.flotar()
-        avatar.trasladar([-0.6,1.5,3])  # Ajuste de posición para que flote sobre el marcador
+        
         #avatar.flotar()
         # Redes sociales
         redes = obtener_redes_comunes()
@@ -327,19 +313,6 @@ def interfaz():
                                 [    0,    0,       1]])
         distCoeffs = np.zeros((5, 1)) 
 
-    try:
-            avatar = crear_avatar()
-            escena = cuia.escenaPYGFX(fov(cameraMatrix, ancho, alto), ancho, alto)
-            escena.agregar_modelo(avatar)
-            escena.ilumina_modelo(avatar)
-            escena.avatar = avatar
-            escena.avatar.flotar()
-            escena.iluminar(3.0)
-
-            # 🔁 Compartir escena con overlay
-            import ui.overlay
-            ui.overlay.escena = escena
-
     except Exception as e:
             print(f"[ERROR] pygfx desactivado: {e}")
             pygfx_activo = False
@@ -391,19 +364,10 @@ def interfaz():
         rvec, tvec = None, None
 
 
-        if estado.get("marcador_id") and estado.get("ra_activa"):
-            marcador_esperado = estado["marcador_id"]
-            perfil = obtener_perfil_por_marcador(marcador_esperado)
-
-            id_detectado, rvec, tvec, _ = detectar_marcador(frame, return_corners=True)
-
-            if id_detectado == marcador_esperado and perfil and rvec is not None and tvec is not None:
-                frame = mostrar_avatar_con_marcador(escena, frame, perfil, cameraMatrix, distCoeffs, ancho, alto)
-
-            elif id_detectado is None:
-                # Si se pierde el marcador, ocultar avatar
-                if hasattr(escena, "avatar"):
-                    escena.avatar.model_obj.visible = False
+        if estado.get("ra_activa"):
+            print("[RA] Ejecutando modo RA con avatar personalizado...")
+            avatar(estado)
+            estado["ra_activa"] = False  # Se desactiva al cerrar la ventana 'AR'
 
         # 🔁 ACTUALIZAR Y RENDERIZAR PANEL FLOTANTE
         from ui.overlay import actualizar_texto_flotante, panel_flotante

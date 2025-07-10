@@ -121,6 +121,8 @@ def obtener_redes_comunes():
         conn.close()
         return {}
 
+    print(f"[DEBUG] Usuario actual en sesión: {nombre_usuario}")
+
     # Obtener el marcador del usuario que inició sesión
     cursor.execute("SELECT marcador_id FROM usuarios WHERE nombre = ?", (nombre_usuario,))
     fila = cursor.fetchone()
@@ -130,10 +132,11 @@ def obtener_redes_comunes():
 
     marcador_usuario = fila[0]
 
-    # Obtener redes del usuario que inició sesión
+    # Obtener redes del usuario
     cursor.execute("SELECT red_social FROM perfiles_redes WHERE marcador_id = ?", (marcador_usuario,))
-    redes_usuario = set(r[0] for r in cursor.fetchall())
-    #print(f"[DEBUG] Redes del usuario {nombre_usuario}: {redes_usuario}")
+    redes_usuario_raw = cursor.fetchall()
+    redes_usuario = {r[0].strip().lower() for r in redes_usuario_raw}
+    print(f"[DEBUG] Redes del usuario {nombre_usuario}: {redes_usuario}")
 
     marcador_detectado = estado.get("marcador_detectado")
     if isinstance(marcador_detectado, dict):
@@ -142,15 +145,21 @@ def obtener_redes_comunes():
         conn.close()
         return {}
 
+    print(f"[DEBUG] Marcador detectado: {marcador_detectado}")
+
     # Obtener redes del marcador detectado
     cursor.execute("SELECT red_social, icono FROM perfiles_redes WHERE marcador_id = ?", (marcador_detectado,))
     redes_marcador = cursor.fetchall()
-    #print(f"[DEBUG] Redes del marcador {marcador_detectado}: {redes_marcador}")
+    print(f"[DEBUG] Redes del marcador {marcador_detectado}: {[r[0] for r in redes_marcador]}")
+
     conn.close()
 
-    # Devolver solo las redes que estén en común
-    redes_comunes = {red: icono for red, icono in redes_marcador if red in redes_usuario}
-    #print(f"[DEBUG] Redes comunes: {redes_comunes}")
+    # Comparación insensible a mayúsculas/espacios
+    redes_comunes = {
+        red: icono for red, icono in redes_marcador
+        if red.strip().lower() in redes_usuario
+    }
+    print(f"[DEBUG] Redes comunes: {list(redes_comunes.keys())}")
 
     return redes_comunes
 
