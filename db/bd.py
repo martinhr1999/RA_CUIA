@@ -79,6 +79,7 @@ def buscar_usuario_por_marcador(marcador_id):
     """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    print("ID MARCADOR PARA OOBTENER PERFIL", marcador_id)
     cursor.execute("SELECT nombre FROM usuarios WHERE marcador_id = ?", (marcador_id,))
     fila = cursor.fetchone()
     conn.close()
@@ -113,64 +114,53 @@ def obtener_perfil_por_marcador(marcador_id):
 
 
 def obtener_redes_comunes():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
     nombre_usuario = estado.get("nombre")  # Usuario que inició sesión
     if not nombre_usuario:
-        conn.close()
+        print("[ERROR] No hay usuario en sesión.")
         return {}
 
-    #print(f"[DEBUG] Usuario actual en sesión: {nombre_usuario}")
+    redes_usuario = obtener_redes(nombre_usuario)
 
-    # Obtener el marcador del usuario que inició sesión
-    cursor.execute("SELECT marcador_id FROM usuarios WHERE nombre = ?", (nombre_usuario,))
-    fila = cursor.fetchone()
-    if not fila:
-        conn.close()
-        return {}
-
-    marcador_usuario = fila[0]
-
-    # Obtener redes del usuario
-    cursor.execute("SELECT red_social FROM perfiles_redes WHERE marcador_id = ?", (marcador_usuario,))
-    redes_usuario_raw = cursor.fetchall()
-    redes_usuario = {r[0].strip().lower() for r in redes_usuario_raw}
-    #print(f"[DEBUG] Redes del usuario {nombre_usuario}: {redes_usuario}")
-
-    marcador_detectado = estado.get("marcador_detectado")
+    marcador_detectado = estado.get("marcador_id")
     if isinstance(marcador_detectado, dict):
         marcador_detectado = marcador_detectado.get("id")
     if marcador_detectado is None:
-        conn.close()
+        #print("[ERROR] No se ha detectado ningún marcador.")
         return {}
 
-    #print(f"[DEBUG] Marcador detectado: {marcador_detectado}")
+    perfil_marcador = obtener_perfil_por_marcador(marcador_detectado)
+    if not perfil_marcador:
+        #print(f"[ERROR] No se encontró perfil para el marcador {marcador_detectado}")
+        return {}
 
-    # Obtener redes del marcador detectado
-    cursor.execute("SELECT red_social, icono FROM perfiles_redes WHERE marcador_id = ?", (marcador_detectado,))
-    redes_marcador = cursor.fetchall()
-    #print(f"[DEBUG] Redes del marcador {marcador_detectado}: {[r[0] for r in redes_marcador]}")
+    nombre_usuario_marcador = perfil_marcador.get("nombre")
+    if not nombre_usuario_marcador:
+        print(f"[ERROR] El perfil del marcador {marcador_detectado} no tiene nombre.")
+        return {}
 
-    conn.close()
+    #print(f"[DEBUG] Usuario del marcador: {nombre_usuario_marcador}")
+    redes_marcador = obtener_redes(nombre_usuario_marcador)
 
-    # Comparación insensible a mayúsculas/espacios
+    #print(f"[DEBUG] Redes del usuario: {list(redes_usuario.keys())}")
+    #print(f"[DEBUG] Redes del marcador: {list(redes_marcador.keys())}")
+
     redes_comunes = {
-        red: icono for red, icono in redes_marcador
-        if red.strip().lower() in redes_usuario
+        red: icono for red, icono in redes_marcador.items() if red in redes_usuario
     }
-    print(f"[DEBUG] Redes comunes: {list(redes_comunes.keys())}")
 
+    #print(f"[DEBUG] Redes comunes: {list(redes_comunes.keys())}")
     return redes_comunes
 
-def obtener_redes():
+
+def obtener_redes(nombre_usuario=None):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    nombre_usuario = estado.get("nombre")  # Usuario que inició sesión
     if not nombre_usuario:
-        conn.close()
-        return {}
+        nombre_usuario = estado.get("nombre")  # Usuario que inició sesión
+        if not nombre_usuario:
+            conn.close()
+            return {}
 
     # Obtener el marcador del usuario que inició sesión
     cursor.execute("SELECT marcador_id FROM usuarios WHERE nombre = ?", (nombre_usuario,))
